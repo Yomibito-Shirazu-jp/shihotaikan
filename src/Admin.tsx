@@ -1,8 +1,68 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth, db, handleFirestoreError } from './firebase';
+import { auth, db, storage, handleFirestoreError } from './firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { AlertCircle, CheckCircle2, ChevronRight, FileText, Search, LogIn, LogOut, UploadCloud } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronRight, FileText, Search, LogIn, LogOut, UploadCloud, ImageOff } from 'lucide-react';
+
+// Resolves a Firebase Storage path (e.g. "past_photos/A/A00001.jpg") to a
+// download URL and renders an <img>, with a placeholder while loading and a
+// labelled fallback if the object is missing.
+const photoUrlCache = new Map<string, string>();
+function PastPhoto({ path, code, label }: { path?: string; code?: string; label?: string }) {
+  const [url, setUrl] = useState<string | null>(path && photoUrlCache.has(path) ? photoUrlCache.get(path)! : null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setError(false);
+    if (!path) {
+      setUrl(null);
+      return;
+    }
+    if (photoUrlCache.has(path)) {
+      setUrl(photoUrlCache.get(path)!);
+      return;
+    }
+    let cancelled = false;
+    getDownloadURL(storageRef(storage, path))
+      .then(u => {
+        if (cancelled) return;
+        photoUrlCache.set(path, u);
+        setUrl(u);
+      })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
+  }, [path]);
+
+  if (url && !error) {
+    return (
+      <div className="w-[110px] h-[150px] border border-neutral-400 bg-neutral-100 overflow-hidden relative shadow-sm">
+        <img
+          src={url}
+          alt={code || 'photo'}
+          className="w-full h-full object-cover grayscale brightness-110 contrast-125"
+          onError={() => setError(true)}
+        />
+        {code && (
+          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] px-1 py-0.5 text-center font-mono backdrop-blur-sm">
+            {code}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="w-[110px] h-[150px] border border-dashed border-neutral-400 bg-neutral-50 flex flex-col items-center justify-center text-center px-2">
+      <ImageOff className="w-6 h-6 text-neutral-300 mb-1" />
+      <span className="text-neutral-500 text-[10px] font-sans font-medium leading-snug whitespace-pre-line">
+        {label || (code ? `【写真】\n${code}` : '【写真】\n未登録')}
+      </span>
+      {error && code && (
+        <span className="text-[9px] text-amber-600 mt-1">未アップロード</span>
+      )}
+    </div>
+  );
+}
 
 export default function Admin() {
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -300,55 +360,71 @@ export default function Admin() {
                       <div className="flex-1 overflow-auto p-4 md:p-8 bg-neutral-100/50 flex flex-col md:flex-row items-center justify-center">
                         
                         {/* Book mock-up: Represents a single card in Taikan */}
-                        <div className="bg-white shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-neutral-300 w-full max-w-[640px] md:h-[500px] font-serif p-10 relative overflow-hidden flex transform sm:scale-110 origin-center text-black">
-                           {/* Right Area (Title, Name, Birth) in Vertical Text */}
+                        <div className="shadow-[0_10px_40px_-10px_rgba(0,0,0,0.18)] border border-neutral-300 w-full max-w-[640px] md:h-[500px] font-serif p-10 relative overflow-hidden flex transform sm:scale-110 origin-center text-black"
+                             style={{ background: 'linear-gradient(180deg, #fdfcf6 0%, #f7f4ea 100%)' }}>
+                           {/* Right Area (Title, Furigana, Name, Birth, 本籍) */}
                            <div className="flex flex-row-reverse w-1/2 h-full" style={{ writingMode: 'vertical-rl' }}>
-                              <div className="text-lg tracking-[0.2em] leading-relaxed ml-6 mt-4">
+                              <div className="text-base tracking-[0.2em] leading-relaxed ml-6 mt-4">
                                 {sub.jobTitle}
                               </div>
-                              <div className="flex flex-col ml-8 items-center mt-12">
+                              <div className="flex flex-col ml-6 items-center mt-12">
+                                 <div className="text-[10px] tracking-[0.3em] text-neutral-700 mb-2 whitespace-nowrap">
+                                    {sub.lastNameKana}　{sub.firstNameKana}
+                                 </div>
                                  <div className="text-3xl font-bold tracking-[0.6em] whitespace-nowrap">
                                     {sub.lastName}　{sub.firstName}
                                  </div>
-                                 <div className="text-xs mt-6 tracking-widest text-neutral-800 pt-8">
+                                 <div className="text-[11px] mt-6 tracking-widest text-neutral-800 pt-6">
                                     {sub.birthEra}{sub.birthYear}{sub.birthYear ? '年' : ''}{sub.birthMonth}{sub.birthMonth ? '月' : ''}{sub.birthDay}{sub.birthDay ? '日生' : ''}
                                  </div>
+                                 {sub.birthPlace && (
+                                   <div className="text-[10px] mt-3 tracking-widest text-neutral-600">
+                                      （{sub.birthPlace}）
+                                   </div>
+                                 )}
                               </div>
                            </div>
 
                            {/* Left Area (Photo, Career) */}
                            <div className="w-1/2 h-full relative border-l border-neutral-200/50 pl-6">
                               {/* Photo Box */}
-                              <div className="w-[110px] h-[150px] border border-neutral-400 bg-neutral-100 mb-6 absolute top-0 left-6 flex items-center justify-center overflow-hidden">
-                                 <span className="text-neutral-400 text-xs text-center leading-relaxed font-sans font-medium">
-                                   【写真】<br/>
-                                   {sub.photoType === '新規提出' ? sub.photoFileName : `${sub.oldPhotoDepartment}\n${sub.oldPhotoPage}頁 流用`}
-                                 </span>
+                              <div className="mb-6 absolute top-0 left-6">
+                                {sub.isImportedPastData && sub.pastPhotoStoragePath ? (
+                                  <PastPhoto path={sub.pastPhotoStoragePath} code={sub.pastPhotoCode} />
+                                ) : sub.photoType === '新規提出' ? (
+                                  <PastPhoto label={`【写真】\n${sub.photoFileName || '新規提出'}`} />
+                                ) : sub.photoType === '令和３年版の写真を流用' ? (
+                                  <PastPhoto label={`【流用】\n${sub.oldPhotoDepartment || ''}\n${sub.oldPhotoPage || ''}頁`} />
+                                ) : (
+                                  <PastPhoto label={`【写真】\n${sub.photoType || '未指定'}`} />
+                                )}
                               </div>
 
                               {/* Career Text in Vertical */}
                               <div className="absolute top-[170px] left-6 bottom-0 right-0 overflow-hidden" style={{ writingMode: 'vertical-rl' }}>
                                  <div className="text-xs leading-[2.5] tracking-widest text-neutral-800 h-full w-full">
-                                    {sub.careerType === '新規入力' ? sub.careerNew?.map((c: any, i: number) => (
+                                    {(sub.careerNew && sub.careerNew.length > 0) ? sub.careerNew.map((c: any, i: number) => (
                                       <div key={i} className="mb-2">
-                                        <span className="mr-3 inline-block min-w-[6em]">{c.date}</span>
+                                        {c.date && <span className="mr-3 inline-block min-w-[6em]">{c.date}</span>}
                                         <span>{c.content}</span>
                                       </div>
-                                    )) : (
+                                    )) : sub.careerType === '令和３年版の経歴を流用・追加' ? (
                                       <div className="text-neutral-500 font-sans text-[11px] leading-relaxed w-full">
                                          <p className="border border-neutral-300 p-2 mb-4 bg-neutral-50">
                                           【令和3年版 流用指定】<br/>
-                                          {sub.oldCareerDepartment} {sub.oldCareerPage}頁<br/>
+                                          {sub.oldCareerDepartment} {sub.oldCareerPage}頁
                                          </p>
                                          <div style={{ writingMode: 'vertical-rl' }} className="font-serif text-black mt-2">
                                           {sub.careerAdd?.map((c: any, i: number) => (
                                             <div key={i} className="mb-2">
-                                              <span className="mr-3 inline-block min-w-[6em]">{c.date}</span>
+                                              {c.date && <span className="mr-3 inline-block min-w-[6em]">{c.date}</span>}
                                               <span>{c.content}</span>
                                             </div>
                                           ))}
                                          </div>
                                       </div>
+                                    ) : (
+                                      <div className="text-neutral-400 font-sans text-[11px]">経歴未入力</div>
                                     )}
                                  </div>
                               </div>
@@ -357,9 +433,17 @@ export default function Admin() {
 
                       </div>
 
-                      <div className="border-t border-neutral-100 bg-neutral-50 p-4 text-xs text-neutral-500 flex justify-between">
-                        <span>【写真】 {sub.photoType} {sub.photoType === '新規提出' ? `(${sub.photoFileName})` : `(${sub.oldPhotoDepartment} ${sub.oldPhotoPage}頁)`}</span>
-                        <span>提出日時: {sub.createdAt?.toDate ? sub.createdAt.toDate().toLocaleString('ja-JP') : new Date().toLocaleString()}</span>
+                      <div className="border-t border-neutral-100 bg-neutral-50 p-4 text-xs text-neutral-500 flex justify-between flex-wrap gap-2">
+                        <span>
+                          【写真】 {sub.photoType || '未指定'}
+                          {sub.isImportedPastData && sub.pastPhotoCode && ` (${sub.pastPhotoCode})`}
+                          {sub.photoType === '新規提出' && sub.photoFileName && ` (${sub.photoFileName})`}
+                          {sub.photoType === '令和３年版の写真を流用' && (sub.oldPhotoDepartment || sub.oldPhotoPage) && ` (${sub.oldPhotoDepartment || ''} ${sub.oldPhotoPage || ''}頁)`}
+                        </span>
+                        <span>
+                          {sub.isImportedPastData && <span className="bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded mr-2">過去データ</span>}
+                          提出日時: {sub.createdAt?.toDate ? sub.createdAt.toDate().toLocaleString('ja-JP') : new Date().toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   );

@@ -6,3 +6,14 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local permission overrides for Claude Code
+.claude/
+
+# Source raw data (Access MDB, EPS portraits, PDFs) — too large and contains PII
+司法大観/
+
+# Bulk-import outputs (PII) and intermediate artifacts
+scripts/out/
+scripts/service-account.json
+scripts/package-lock.json

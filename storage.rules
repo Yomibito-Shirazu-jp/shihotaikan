@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Past edition portrait photos. Readable by any signed-in user so the
+    // form's "前回のデータを参照" preview can show portraits. Writes are
+    // restricted: bulk uploads happen via the firebase CLI / admin SDK.
+    match /past_photos/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
