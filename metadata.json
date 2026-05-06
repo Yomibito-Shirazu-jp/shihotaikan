@@ -1,0 +1,6 @@
+{
+  "name": "司法大観 AI オンライン入稿システム",
+  "description": "法曹会向けのオンライン原稿入稿システム。過去データの参照やAIによるふりがな予測機能を備えています。",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidSubmission(data) {
+      return data.keys().hasAll(['department', 'lastName', 'firstName', 'lastNameKana', 'firstNameKana', 'jobTitle', 'careerType', 'photoType', 'agreeTerms', 'createdAt', 'userId'])
+        && data.userId == request.auth.uid
+        && data.department is string && data.department.size() <= 100
+        && data.lastName is string && data.lastName.size() <= 100
+        && data.firstName is string && data.firstName.size() <= 100
+        && data.lastNameKana is string && data.lastNameKana.size() <= 100
+        && data.firstNameKana is string && data.firstNameKana.size() <= 100
+        && data.jobTitle is string && data.jobTitle.size() <= 200
+        && data.careerType is string && data.careerType.size() <= 50
+        && data.photoType is string && data.photoType.size() <= 50
+        && data.agreeTerms is bool && data.agreeTerms == true
+        && data.createdAt == request.time;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['name', 'birthdate', 'birthplace', 'phone', 'email', 'createdAt'])
+        && data.name is string && data.name.size() <= 100
+        && data.birthdate is string && data.birthdate.size() <= 50
+        && data.birthplace is string && data.birthplace.size() <= 100
+        && data.phone is string && data.phone.size() <= 20
+        && data.email is string && data.email.size() <= 200
+        && data.createdAt == request.time;
+    }
+
+    match /admins/{adminId} {
+      allow get: if request.auth != null && request.auth.uid == adminId;
+      allow read, write: if false;
+    }
+
+    match /users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId && isValidId(userId) && isValidUser(request.resource.data);
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'birthdate', 'birthplace', 'phone', 'email', 'updatedAt']) && request.resource.data.updatedAt == request.time;
+    }
+
+    match /submissions/{submissionId} {
+      allow create: if (request.auth != null && isValidId(submissionId) && isValidSubmission(request.resource.data)) || isAdmin();
+      allow get, list, update, delete: if isAdmin();
+      allow get, list: if request.auth != null && (resource.data.userId == request.auth.uid || resource.data.isImportedPastData == true);
+    }
+  }
+}

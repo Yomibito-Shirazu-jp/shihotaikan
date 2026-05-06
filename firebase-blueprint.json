@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "A registered user's profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "birthdate": { "type": "string" },
+        "birthplace": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["name", "birthdate", "birthplace", "phone", "email", "createdAt"]
+    },
+    "submission": {
+      "title": "Submission",
+      "description": "A manuscript submission from a user",
+      "type": "object",
+      "properties": {
+        "department": { "type": "string" },
+        "lastName": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastNameKana": { "type": "string" },
+        "firstNameKana": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "mergedLastName": { "type": "string" },
+        "birthEra": { "type": "string" },
+        "birthYear": { "type": "string" },
+        "birthMonth": { "type": "string" },
+        "birthDay": { "type": "string" },
+        "birthPlace": { "type": "string" },
+        "careerType": { "type": "string" },
+        "careerNew": { "type": "array" },
+        "oldCareerDepartment": { "type": "string" },
+        "oldCareerPage": { "type": "string" },
+        "careerAdd": { "type": "array" },
+        "photoType": { "type": "string" },
+        "oldPhotoDepartment": { "type": "string" },
+        "oldPhotoPage": { "type": "string" },
+        "trainingTerm": { "type": "string" },
+        "agreeTerms": { "type": "boolean" },
+        "photoFileName": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "isImportedPastData": { "type": "boolean" }
+      },
+      "required": ["department", "lastName", "firstName", "lastNameKana", "firstNameKana", "jobTitle", "careerType", "photoType", "agreeTerms", "createdAt", "userId"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/user" },
+      "description": "User profiles"
+    },
+    "submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/submission" },
+      "description": "User manuscript submissions"
+    }
+  }
+}
